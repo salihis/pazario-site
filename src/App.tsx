@@ -37,7 +37,7 @@ import { tr } from 'date-fns/locale';
 import { Toaster, toast } from 'sonner';
 import { cn } from './lib/utils';
 import { 
-  BrowserRouter as Router,
+  HashRouter as Router,
   Routes,
   Route,
   Link,
@@ -46,6 +46,7 @@ import {
 import LandingPage from './pages/LandingPage';
 import AdminDashboard from './pages/AdminDashboard';
 import CategoryPublishPage from './pages/CategoryPublishPage';
+import NotFoundPage from './pages/NotFoundPage';
 
 export default function App() {
   return (
@@ -56,6 +57,7 @@ export default function App() {
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/publish" element={<CategoryPublishPage />} />
         <Route path="/app/*" element={<AppContent />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Router>
   );
