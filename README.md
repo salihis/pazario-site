@@ -1,0 +1,2 @@
+# pazario-site
+entegrasyon
