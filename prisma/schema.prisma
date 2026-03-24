@@ -1,0 +1,522 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum SyncStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+}
+
+enum Marketplace {
+  TRENDYOL
+  HEPSIBURADA
+  N11
+  PAZARAMA
+  AMAZON
+}
+
+enum ListingStatus {
+  PENDING
+  PUBLISHED
+  FAILED
+  DELISTED
+}
+
+enum ErrorType {
+  VALIDATION
+  API
+  NETWORK
+  MAPPING
+}
+
+enum ScopeType {
+  GLOBAL
+  MARKETPLACE
+  CATEGORY
+  BRAND
+  PRODUCT
+}
+
+enum MappingStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum OrderStatus {
+  NEW
+  PENDING_APPROVAL
+  PREPARING
+  LABEL_CREATED
+  SHIPPED
+  IN_TRANSIT
+  DELIVERED
+  COMPLETED
+  CANCELLATION_REQUESTED
+  CANCELLED
+  RETURN_REQUESTED
+  RETURN_APPROVED
+  RETURN_REJECTED
+  RETURNED
+  REFUNDED
+  DELIVERY_FAILED
+}
+
+enum InvoiceType {
+  INVOICE
+  CREDIT_NOTE
+}
+
+enum CargoCompany {
+  ARAS
+  YURTICI
+  SURAT
+  PTT
+}
+
+enum AttributeType {
+  dropdown
+  multi_select
+  free_text
+  number
+  boolean
+  color
+}
+
+enum PublishStatus {
+  QUEUED
+  SUBMITTED
+  POLLING
+  SUCCESS
+  FAILED
+  POLLING_TIMEOUT
+}
+
+// Models
+
+model MarketplaceCategoryAttribute {
+  id              String    @id @default(uuid()) @db.Uuid
+  marketplace     Marketplace
+  categoryId      String    @db.VarChar(100)
+  attributeId     String    @db.VarChar(100)
+  attributeName   String    @db.VarChar(200)
+  attributeType   AttributeType        // dropdown | multi_select | free_text | number | boolean | color
+  isMandatory     Boolean   @default(false)
+  allowCustomValue Boolean  @default(false)
+  values          Json?     // [{id: string, name: string}]
+  validationRules Json?     // {min?, max?, maxLength?, pattern?}
+  displayOrder    Int       @default(0)
+  fetchedAt       DateTime  @default(now())
+
+  @@unique([marketplace, categoryId, attributeId])
+  @@index([marketplace, categoryId, isMandatory])
+  @@map("marketplace_category_attributes")
+}
+
+model ProductAttribute {
+  id            String    @id @default(uuid()) @db.Uuid
+  productId     String    @db.Uuid
+  product       Product   @relation(fields: [productId], references: [id])
+  marketplace   Marketplace
+  attributeId   String    @db.VarChar(100)
+  attributeName String?   @db.VarChar(200)   // join gerektirmemesi için kopyalanır
+  valueId       String?   @db.VarChar(100)   // dropdown seçiminde değer ID
+  valueText     String?   @db.Text           // free text veya display değeri
+  isInherited   Boolean   @default(false)    // toplu uygulama ile mi geldi
+  savedBy       String?   @db.VarChar(100)
+  savedAt       DateTime  @default(now())
+
+  @@unique([productId, marketplace, attributeId])
+  @@index([productId, marketplace])
+  @@map("product_attributes")
+}
+
+model ProductPublishJob {
+  id             String       @id @default(uuid()) @db.Uuid
+  productId      String       @db.Uuid
+  product        Product      @relation(fields: [productId], references: [id])
+  marketplace    Marketplace
+  externalJobId  String?      @db.VarChar(200)   // batchRequestId (TY) veya taskId (N11)
+  status         PublishStatus @default(QUEUED)
+  attemptCount   Int          @default(0)
+  lastPolledAt   DateTime?
+  errorMessage   String?      @db.Text
+  submittedAt    DateTime?
+  resolvedAt     DateTime?
+  triggeredBy    String?      @db.VarChar(100)
+  createdAt      DateTime     @default(now())
+
+  @@index([status, marketplace, lastPolledAt])
+  @@index([productId, marketplace])
+  @@map("product_publish_jobs")
+}
+
+model XmlSource {
+  id               String      @id @default(uuid()) @db.Uuid
+  name             String      @db.VarChar(100)
+  url              String
+  fetchTimeoutSec  Int         @default(60)
+  active           Boolean     @default(true)
+  createdAt        DateTime    @default(now())
+  
+  syncJobs         SyncJob[]
+  products         Product[]
+  categoryMappings CategoryMapping[]
+
+  @@map("xml_sources")
+}
+
+model SyncJob {
+  id               String       @id @default(uuid()) @db.Uuid
+  sourceId         String       @db.Uuid
+  status           SyncStatus
+  totalProducts    Int?
+  changedProducts  Int?
+  publishedCount   Int?
+  failedCount      Int?
+  totalCount       Int?         @default(0)
+  successCount     Int?         @default(0)
+  failCount        Int?         @default(0)
+  errorMessage     String?
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  createdAt        DateTime     @default(now())
+
+  source           XmlSource    @relation(fields: [sourceId], references: [id])
+  listings         MarketplaceListing[]
+  publishErrors    PublishError[]
+  priceCalculations PriceCalculation[]
+  publishLogs      PublishLog[]
+
+  @@map("sync_jobs")
+}
+
+model Product {
+  id               String       @id @default(uuid()) @db.Uuid
+  sourceId         String       @db.Uuid
+  externalId       String       @db.VarChar(100)
+  sku              String       @db.VarChar(100)
+  barcode          String?      @db.VarChar(20)
+  title            String       @db.VarChar(500)
+  description      String?      @db.Text
+  brand            String?      @db.VarChar(100)
+  categoryRaw      String?      @db.VarChar(500)
+  price            Decimal      @db.Decimal(12, 2)
+  listPrice        Decimal?     @db.Decimal(12, 2)
+  currency         String       @default("TRY") @db.VarChar(3)
+  stock            Int          @default(0)
+  images           String[]
+  attributes       Json         @default("{}")
+  contentHash      String       @db.Char(32)
+  lastSeenAt       DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  source           XmlSource    @relation(fields: [sourceId], references: [id])
+  listings         MarketplaceListing[]
+  publishErrors    PublishError[]
+  priceCalculations PriceCalculation[]
+  orderItems       OrderItem[]
+  publishLogs      PublishLog[]
+  productAttributes ProductAttribute[]
+  publishJobs      ProductPublishJob[]
+
+  @@unique([sourceId, externalId])
+  @@index([contentHash])
+  @@index([barcode])
+  @@map("products")
+}
+
+model MarketplaceListing {
+  id                String        @id @default(uuid()) @db.Uuid
+  productId         String        @db.Uuid
+  marketplace       Marketplace
+  status            ListingStatus
+  externalListingId String?       @db.VarChar(200)
+  lastSyncJobId     String?       @db.Uuid
+  publishedAt       DateTime?
+  lastUpdatedAt     DateTime?
+  hashAtPublish     String?       @db.Char(32)
+
+  product           Product       @relation(fields: [productId], references: [id])
+  syncJob           SyncJob?      @relation(fields: [lastSyncJobId], references: [id])
+
+  @@unique([productId, marketplace])
+  @@index([status, marketplace])
+  @@map("marketplace_listings")
+}
+
+model PublishError {
+  id               String       @id @default(uuid()) @db.Uuid
+  syncJobId        String       @db.Uuid
+  productId        String       @db.Uuid
+  marketplace      String       @db.VarChar(50)
+  errorType        ErrorType?
+  errorCode        String?      @db.VarChar(50)
+  errorMessage     String       @db.Text
+  retryCount       Int          @default(0)
+  resolved         Boolean      @default(false)
+  createdAt        DateTime     @default(now())
+
+  syncJob          SyncJob      @relation(fields: [syncJobId], references: [id])
+  product          Product      @relation(fields: [productId], references: [id])
+
+  @@index([resolved, marketplace])
+  @@map("publish_errors")
+}
+
+model PublishLog {
+  id               String       @id @default(uuid()) @db.Uuid
+  syncJobId        String       @db.Uuid
+  productId        String       @db.Uuid
+  marketplace      Marketplace
+  status           String       @db.VarChar(20) // 'SUCCESS' | 'FAILED'
+  error            String?      @db.Text
+  createdAt        DateTime     @default(now())
+
+  syncJob          SyncJob      @relation(fields: [syncJobId], references: [id])
+  product          Product      @relation(fields: [productId], references: [id])
+
+  @@map("publish_logs")
+}
+
+model PriceRule {
+  id               String       @id @default(uuid()) @db.Uuid
+  name             String       @db.VarChar(150)
+  marketplace      String       @db.VarChar(50) // "*" = hepsi
+  scopeType        ScopeType
+  scopeValue       String?      @db.VarChar(500)
+  ekTutar          Decimal      @default(0) @db.Decimal(10, 2)
+  karOrani         Decimal      @default(1.0) @db.Decimal(6, 4)
+  kargo            Decimal      @default(0) @db.Decimal(10, 2)
+  komisyonOrani    Decimal      @db.Decimal(5, 4)
+  priority         Int
+  active           Boolean      @default(true)
+  createdBy        String?      @db.VarChar(100)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  priceCalculations PriceCalculation[]
+
+  @@index([marketplace, scopeType, active])
+  @@map("price_rules")
+}
+
+model PriceCalculation {
+  id               String       @id @default(uuid()) @db.Uuid
+  productId        String       @db.Uuid
+  marketplace      String       @db.VarChar(50)
+  ruleId           String       @db.Uuid
+  syncJobId        String       @db.Uuid
+  basePrice        Decimal      @db.Decimal(12, 2)
+  ekTutar          Decimal      @db.Decimal(10, 2)
+  karOrani         Decimal      @db.Decimal(6, 4)
+  kargo            Decimal      @db.Decimal(10, 2)
+  komisyonOrani    Decimal      @db.Decimal(5, 4)
+  ara1BaseEk       Decimal      @db.Decimal(12, 2)
+  ara2Kar          Decimal      @db.Decimal(12, 2)
+  ara3Kargo        Decimal      @db.Decimal(12, 2)
+  rawPrice         Decimal      @db.Decimal(12, 2)
+  minPriceApplied  Boolean      @default(false)
+  finalPrice       Decimal      @db.Decimal(12, 2)
+  calculatedAt     DateTime     @default(now())
+
+  product          Product      @relation(fields: [productId], references: [id])
+  rule             PriceRule    @relation(fields: [ruleId], references: [id])
+  syncJob          SyncJob      @relation(fields: [syncJobId], references: [id])
+
+  @@index([productId, marketplace, calculatedAt(sort: Desc)])
+  @@map("price_calculations")
+}
+
+model GlobalPriceSettings {
+  id               String       @id @default(uuid()) @db.Uuid
+  minPrice         Decimal      @db.Decimal(12, 2)
+  currency         String       @default("TRY") @db.VarChar(3)
+  updatedBy        String?      @db.VarChar(100)
+  updatedAt        DateTime     @updatedAt
+
+  @@map("global_price_settings")
+}
+
+model CategoryMapping {
+  id                        String       @id @default(uuid()) @db.Uuid
+  sourceId                  String       @db.Uuid
+  sourceCategory            String       @db.Text
+  marketplace               Marketplace
+  marketplaceCategoryId     String?      @db.VarChar(100)
+  marketplaceCategoryPath   String?      @db.Text
+  status                    MappingStatus
+  aiSuggested               Boolean      @default(false)
+  aiConfidence              Decimal?     @db.Decimal(4, 3)
+  aiReason                  String?      @db.Text
+  allSuggestions            Json?
+  approvedBy                String?      @db.VarChar(100)
+  approvedAt                DateTime?
+  createdAt                 DateTime     @default(now())
+  updatedAt                 DateTime     @updatedAt
+
+  source                    XmlSource    @relation(fields: [sourceId], references: [id])
+
+  @@unique([sourceId, sourceCategory, marketplace])
+  @@index([marketplace, status])
+  @@map("category_mappings")
+}
+
+model MarketplaceCategory {
+  id               String       @id @default(uuid()) @db.Uuid
+  marketplace      Marketplace
+  categoryId       String       @db.VarChar(100)
+  categoryPath     String       @db.Text
+  categoryName     String       @db.VarChar(500)
+  parentId         String?      @db.VarChar(100)
+  isLeaf           Boolean      @default(true)
+  fetchedAt        DateTime
+
+  @@unique([marketplace, categoryId])
+  @@map("marketplace_categories")
+}
+
+model Order {
+  id                    String       @id @default(uuid()) @db.Uuid
+  marketplace           Marketplace
+  marketplaceOrderId    String       @unique @db.VarChar(100)
+  marketplaceOrderNo    String?      @db.VarChar(100)
+  status                OrderStatus
+  customerName          String?      @db.VarChar(200)
+  customerPhone         String?      @db.VarChar(20)
+  shippingAddress       Json?
+  billingAddress        Json?
+  totalAmount           Decimal      @db.Decimal(12, 2)
+  currency              String       @default("TRY") @db.VarChar(3)
+  cargoCompany          String?      @db.VarChar(50)
+  trackingNumber        String?      @db.VarChar(100)
+  cargoLabelUrl         String?      @db.Text
+  invoiceId             String?      @db.Uuid
+  approvedBy            String?      @db.VarChar(100)
+  approvedAt            DateTime?
+  fetchedAt             DateTime
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  items                 OrderItem[]
+  history               OrderHistory[]
+  invoice               Invoice?
+  shipment              Shipment?
+
+  @@index([status, marketplace])
+  @@map("orders")
+}
+
+model OrderItem {
+  id                    String       @id @default(uuid()) @db.Uuid
+  orderId               String       @db.Uuid
+  productId             String?      @db.Uuid
+  marketplaceProductId  String?      @db.VarChar(100)
+  sku                   String?      @db.VarChar(100)
+  title                 String       @db.VarChar(500)
+  quantity              Int
+  unitPrice             Decimal      @db.Decimal(12, 2)
+  totalPrice            Decimal      @db.Decimal(12, 2)
+  vatRate               Int?
+
+  order                 Order        @relation(fields: [orderId], references: [id])
+  product               Product?     @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+model OrderHistory {
+  id               String       @id @default(uuid()) @db.Uuid
+  orderId          String       @db.Uuid
+  fromStatus       String?      @db.VarChar(50)
+  toStatus         String       @db.VarChar(50)
+  changedBy        String?      @db.VarChar(100)
+  note             String?      @db.Text
+  createdAt        DateTime     @default(now())
+
+  order            Order        @relation(fields: [orderId], references: [id])
+
+  @@map("order_history")
+}
+
+model Invoice {
+  id                String       @id @default(uuid()) @db.Uuid
+  orderId           String       @unique @db.Uuid
+  invoiceType       InvoiceType
+  invoiceNumber     String?      @db.VarChar(100)
+  externalInvoiceId String?      @db.VarChar(100)
+  pdfUrl            String?      @db.Text
+  totalAmount       Decimal      @db.Decimal(12, 2)
+  issuedAt          DateTime?
+  createdAt         DateTime     @default(now())
+
+  order             Order        @relation(fields: [orderId], references: [id])
+
+  @@map("invoices")
+}
+
+model Shipment {
+  id                    String       @id @default(uuid()) @db.Uuid
+  orderId               String       @unique @db.Uuid
+  cargoCompany          CargoCompany
+  trackingNumber        String       @db.VarChar(100)
+  labelPdfUrl           String?      @db.Text
+  desi                  Decimal?     @db.Decimal(6, 2)
+  weightKg              Decimal?     @db.Decimal(6, 3)
+  status                String       @db.VarChar(50) @default("CREATED")
+  rawStatus             String?      @db.VarChar(100)
+  statusDescription     String?      @db.Text
+  lastLocation          String?      @db.VarChar(200)
+  estimatedDelivery     DateTime?
+  deliveredAt           DateTime?
+  lastCheckedAt         DateTime?
+  marketplaceNotifiedAt DateTime?
+  createdAt             DateTime     @default(now())
+
+  order                 Order        @relation(fields: [orderId], references: [id])
+
+  @@map("shipments")
+}
+
+model CargoCompanyMapping {
+  id                   String       @id @default(uuid()) @db.Uuid
+  cargoCompany         CargoCompany
+  marketplace          Marketplace
+  marketplaceCargoCode String       @db.VarChar(50)
+  marketplaceCargoName String?      @db.VarChar(100)
+
+  @@unique([cargoCompany, marketplace])
+  @@map("cargo_company_mappings")
+}
+
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @unique @db.VarChar(255)
+  password  String   @db.VarChar(255)
+  role      String   @default("USER")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model OrderFetchLog {
+  id             String      @id @default(uuid()) @db.Uuid
+  marketplace    Marketplace
+  status         String      @db.VarChar(20) // 'SUCCESS' | 'FAILED'
+  fetchedCount   Int         @default(0)
+  errorMessage   String?     @db.Text
+  lastFetchedAt  DateTime
+  createdAt      DateTime    @default(now())
+
+  @@map("order_fetch_logs")
+}

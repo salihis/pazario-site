@@ -1,27 +1,13 @@
 <!DOCTYPE html>
 <html lang="tr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pazar.io - Pazaryeri Yönetim Platformu</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-</head>
-<body class="bg-slate-50 text-slate-900">
-    <nav class="p-6 flex justify-between items-center max-w-7xl mx-auto">
-        <div class="text-2xl font-black text-emerald-600">Pazar.io</div>
-        <div class="space-x-8 font-semibold text-slate-600">
-            <a href="index.html" class="text-emerald-600">Ana Sayfa</a>
-            <a href="urun-gonderim.html" class="hover:text-emerald-600 transition-colors">Ürün Gönderim</a>
-            <a href="admin.html" class="hover:text-emerald-600 transition-colors">Admin Panel</a>
-        </div>
-    </nav>
-    <main class="max-w-4xl mx-auto mt-20 text-center px-6">
-        <h1 class="text-6xl font-black tracking-tighter mb-6 leading-tight">Tüm Pazaryerlerini <br> <span class="text-emerald-600">Tek Noktadan</span> Yönetin.</h1>
-        <p class="text-xl text-slate-500 mb-10 max-w-2xl mx-auto">Trendyol, Hepsiburada, N11 ve daha fazlası. Ürünlerinizi saniyeler içinde yayınlayın.</p>
-        <div class="flex justify-center gap-4">
-            <a href="urun-gonderim.html" class="bg-emerald-600 text-white px-8 py-4 rounded-2xl font-bold text-lg hover:bg-emerald-700 transition-all">Hemen Başlayın</a>
-        </div>
-    </main>
-</body>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>
