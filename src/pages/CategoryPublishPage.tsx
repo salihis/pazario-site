@@ -27,7 +27,7 @@ import {
   CloudUploadOutlined,
   AppstoreOutlined
 } from '@ant-design/icons';
-import { Marketplace } from '@prisma/client';
+import { Marketplace } from '../types/index';
 
 const { Sider, Content } = Layout;
 const { Text, Title } = Typography;
