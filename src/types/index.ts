@@ -1,6 +1,57 @@
-import { Marketplace, SyncStatus, MappingStatus, ScopeType, OrderStatus } from '@prisma/client';
+export enum SyncStatus {
+  PENDING = 'PENDING',
+  RUNNING = 'RUNNING',
+  DONE = 'DONE',
+  FAILED = 'FAILED',
+}
 
-export { Marketplace, SyncStatus, MappingStatus, ScopeType, OrderStatus };
+export enum Marketplace {
+  TRENDYOL = 'TRENDYOL',
+  HEPSIBURADA = 'HEPSIBURADA',
+  N11 = 'N11',
+  PAZARAMA = 'PAZARAMA',
+  AMAZON = 'AMAZON',
+}
+
+export enum ListingStatus {
+  PENDING = 'PENDING',
+  PUBLISHED = 'PUBLISHED',
+  FAILED = 'FAILED',
+  DELISTED = 'DELISTED',
+}
+
+export enum ScopeType {
+  GLOBAL = 'GLOBAL',
+  MARKETPLACE = 'MARKETPLACE',
+  CATEGORY = 'CATEGORY',
+  BRAND = 'BRAND',
+  PRODUCT = 'PRODUCT',
+}
+
+export enum MappingStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+}
+
+export enum OrderStatus {
+  NEW = 'NEW',
+  PENDING_APPROVAL = 'PENDING_APPROVAL',
+  PREPARING = 'PREPARING',
+  LABEL_CREATED = 'LABEL_CREATED',
+  SHIPPED = 'SHIPPED',
+  IN_TRANSIT = 'IN_TRANSIT',
+  DELIVERED = 'DELIVERED',
+  COMPLETED = 'COMPLETED',
+  CANCELLATION_REQUESTED = 'CANCELLATION_REQUESTED',
+  CANCELLED = 'CANCELLED',
+  RETURN_REQUESTED = 'RETURN_REQUESTED',
+  RETURN_APPROVED = 'RETURN_APPROVED',
+  RETURN_REJECTED = 'RETURN_REJECTED',
+  RETURNED = 'RETURNED',
+  REFUNDED = 'REFUNDED',
+  DELIVERY_FAILED = 'DELIVERY_FAILED',
+}
 
 export interface Product {
   id: string;
